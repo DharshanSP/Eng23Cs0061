@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Log } from "../../../logging-middleware/logger.js"
 import { fetchNotifications } from "../api/notifications.js"
 
@@ -31,32 +31,38 @@ export function usePriorityNotifications() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      Log("frontend", "info", "hook", "Fetching all notifications for priority inbox")
+  useEffect(() => {
+    let cancelled = false
 
-      const data = await fetchNotifications({ page: 1, limit: 100 })
+    Log("frontend", "info", "hook", "Fetching all notifications for priority inbox")
 
-      const all = data.notifications || []
-      Log("frontend", "info", "hook", `Computing priority top 10 from ${all.length} notifications`)
+    fetchNotifications({ page: 1, limit: 100 })
+      .then((data) => {
+        if (cancelled) return
+        const all = data.notifications || []
+        Log(
+          "frontend",
+          "info",
+          "hook",
+          `Computing priority top 10 from ${all.length} notifications`
+        )
 
-      const result = computeTop10(all)
-      setTop10(result)
+        const result = computeTop10(all)
+        setTop10(result)
+        setLoading(false)
+        Log("frontend", "info", "state", `Priority inbox updated top10=${result.length}`)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err.message)
+        setLoading(false)
+        Log("frontend", "error", "state", `Priority inbox failed: ${err.message}`)
+      })
 
-      Log("frontend", "info", "state", `Priority inbox updated top10=${result.length}`)
-    } catch (err) {
-      setError(err.message)
-      Log("frontend", "error", "state", `Priority inbox failed: ${err.message}`)
-    } finally {
-      setLoading(false)
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  useEffect(() => {
-    load()
-  }, [load])
-
-  return { top10, loading, error, refetch: load }
+  return { top10, loading, error }
 }

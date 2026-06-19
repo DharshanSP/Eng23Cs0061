@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Log } from "../../../logging-middleware/logger.js"
 import { fetchNotifications } from "../api/notifications.js"
@@ -19,25 +19,33 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchNotifications({ page, limit, notification_type: filterType || undefined })
-      setNotifications(data.notifications || [])
-      setTotal(data.total || 0)
-      Log("frontend", "info", "state", `Notifications state updated count=${data.notifications?.length || 0}`)
-    } catch (err) {
-      setError(err.message)
-      Log("frontend", "error", "state", `Notifications load failed: ${err.message}`)
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    let cancelled = false
+
+    fetchNotifications({ page, limit, notification_type: filterType || undefined })
+      .then((data) => {
+        if (cancelled) return
+        setNotifications(data.notifications || [])
+        setTotal(data.total || 0)
+        setLoading(false)
+        Log(
+          "frontend",
+          "info",
+          "state",
+          `Notifications state updated count=${data.notifications?.length || 0}`
+        )
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err.message)
+        setLoading(false)
+        Log("frontend", "error", "state", `Notifications load failed: ${err.message}`)
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [page, limit, filterType])
-
-  useEffect(() => {
-    load()
-  }, [load])
 
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
