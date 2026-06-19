@@ -1,0 +1,105 @@
+// ../logging-middleware/logger.js
+var LOG_URL = "http://4.224.186.213/evaluation-service/logs";
+var allowedStacks = /* @__PURE__ */ new Set(["frontend", "backend"]);
+var allowedLevels = /* @__PURE__ */ new Set(["debug", "info", "warn", "error", "fatal"]);
+var allowedPackages = /* @__PURE__ */ new Set([
+  "api",
+  "component",
+  "hook",
+  "page",
+  "state",
+  "style",
+  "auth",
+  "config",
+  "middleware",
+  "utils"
+]);
+function getAuthToken() {
+  const viteToken = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_AUTH_TOKEN;
+  return process.env.AUTH_TOKEN || viteToken || "";
+}
+async function Log(stack, level, packageName, message) {
+  if (!allowedStacks.has(stack) || !allowedLevels.has(level) || !allowedPackages.has(packageName)) {
+    return;
+  }
+  const token = getAuthToken();
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  try {
+    await fetch(LOG_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        stack,
+        level,
+        package: packageName,
+        message
+      })
+    });
+  } catch (err) {
+    console.error("log failed", err);
+  }
+}
+
+// src/api/notifications.js
+var API_BASE = "/api";
+function getHeaders() {
+  const headers = { "Content-Type": "application/json" };
+  const viteToken = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_AUTH_TOKEN;
+  if (viteToken) {
+    headers.Authorization = `Bearer ${viteToken}`;
+  }
+  return headers;
+}
+function normalize(raw) {
+  if (!raw) return raw;
+  return {
+    id: raw.ID || raw.id,
+    type: (raw.Type || raw.type || "").toLowerCase(),
+    message: raw.Message || raw.message || "",
+    timestamp: raw.Timestamp || raw.timestamp || ""
+  };
+}
+async function fetchNotifications({
+  page = 1,
+  limit = 10,
+  notification_type
+} = {}) {
+  Log(
+    "frontend",
+    "info",
+    "api",
+    `Notifications request page=${page} limit=${limit} type=${notification_type || "all"}`
+  );
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit)
+  });
+  if (notification_type) {
+    params.set("notification_type", notification_type);
+  }
+  const res = await fetch(`${API_BASE}/notifications?${params}`, {
+    headers: getHeaders()
+  });
+  if (!res.ok) {
+    const msg = `Notifications API returned ${res.status}`;
+    Log("frontend", "error", "api", msg);
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  const items = (data.notifications || []).map(normalize);
+  Log(
+    "frontend",
+    "info",
+    "api",
+    `Notifications success count=${items.length}`
+  );
+  return items;
+}
+export {
+  fetchNotifications
+};

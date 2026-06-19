@@ -3,36 +3,39 @@ import { useSearchParams } from "react-router-dom"
 import { Log } from "../../../logging-middleware/logger.js"
 import { fetchNotifications } from "../api/notifications.js"
 
+const PAGE_SIZE = 10
+
 export function useNotifications() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const page = Number(searchParams.get("page")) || 1
-  const limit = Number(searchParams.get("limit")) || 10
   const rawType = searchParams.get("notification_type") || ""
 
   const filterType = ["placement", "result", "event"].includes(rawType)
     ? rawType
     : ""
 
-  const [notifications, setNotifications] = useState([])
-  const [total, setTotal] = useState(0)
+  const [allItems, setAllItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let cancelled = false
 
-    fetchNotifications({ page, limit, notification_type: filterType || undefined })
-      .then((data) => {
+    fetchNotifications({
+      page: 1,
+      limit: 100,
+      notification_type: filterType || undefined,
+    })
+      .then((items) => {
         if (cancelled) return
-        setNotifications(data.notifications || [])
-        setTotal(data.total || 0)
+        setAllItems(items)
         setLoading(false)
         Log(
           "frontend",
           "info",
           "state",
-          `Notifications state updated count=${data.notifications?.length || 0}`
+          `Notifications state updated count=${items.length}`
         )
       })
       .catch((err) => {
@@ -45,9 +48,12 @@ export function useNotifications() {
     return () => {
       cancelled = true
     }
-  }, [page, limit, filterType])
+  }, [filterType])
 
-  const totalPages = Math.max(1, Math.ceil(total / limit))
+  const start = (page - 1) * PAGE_SIZE
+  const notifications = allItems.slice(start, start + PAGE_SIZE)
+  const total = allItems.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const setFilter = (type) => {
     Log("frontend", "info", "hook", `Filter change to "${type}"`)
@@ -73,7 +79,6 @@ export function useNotifications() {
     total,
     totalPages,
     page,
-    limit,
     filterType,
     loading,
     error,

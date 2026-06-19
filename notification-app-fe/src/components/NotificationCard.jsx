@@ -21,7 +21,9 @@ const typeConfig = {
 function formatDate(ts) {
   if (!ts) return ""
   try {
-    return new Date(ts).toLocaleString("en-IN", {
+    const d = new Date(ts)
+    if (isNaN(d.getTime())) return ts
+    return d.toLocaleString("en-IN", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -50,7 +52,7 @@ export function NotificationCard({ notification }) {
               sx={{ mb: 0.5 }}
             >
               <Typography variant="subtitle2" fontWeight={600} noWrap>
-                {notification.title || notification.message}
+                {notification.message}
               </Typography>
               <Chip
                 label={cfg.label}
@@ -59,11 +61,6 @@ export function NotificationCard({ notification }) {
                 variant="outlined"
               />
             </Stack>
-            {notification.title && notification.message && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                {notification.message}
-              </Typography>
-            )}
             <Typography variant="caption" color="text.disabled">
               {formatDate(notification.timestamp)}
             </Typography>

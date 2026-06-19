@@ -8,5 +8,12 @@ export default defineConfig({
     fs: {
       allow: [".."],
     },
+    proxy: {
+      "/api": {
+        target: "http://4.224.186.213",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, "/evaluation-service"),
+      },
+    },
   },
 })

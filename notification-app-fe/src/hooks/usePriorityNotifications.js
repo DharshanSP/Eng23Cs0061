@@ -37,17 +37,11 @@ export function usePriorityNotifications() {
     Log("frontend", "info", "hook", "Fetching all notifications for priority inbox")
 
     fetchNotifications({ page: 1, limit: 100 })
-      .then((data) => {
+      .then((items) => {
         if (cancelled) return
-        const all = data.notifications || []
-        Log(
-          "frontend",
-          "info",
-          "hook",
-          `Computing priority top 10 from ${all.length} notifications`
-        )
+        Log("frontend", "info", "hook", `Computing priority top 10 from ${items.length} notifications`)
 
-        const result = computeTop10(all)
+        const result = computeTop10(items)
         setTop10(result)
         setLoading(false)
         Log("frontend", "info", "state", `Priority inbox updated top10=${result.length}`)

@@ -1,6 +1,6 @@
 import { Log } from "../../../logging-middleware/logger.js"
 
-const API_BASE = "http://4.224.186.213/evaluation-service"
+const API_BASE = "/api"
 
 function getHeaders() {
   const headers = { "Content-Type": "application/json" }
@@ -12,6 +12,16 @@ function getHeaders() {
     headers.Authorization = `Bearer ${viteToken}`
   }
   return headers
+}
+
+function normalize(raw) {
+  if (!raw) return raw
+  return {
+    id: raw.ID || raw.id,
+    type: (raw.Type || raw.type || "").toLowerCase(),
+    message: raw.Message || raw.message || "",
+    timestamp: raw.Timestamp || raw.timestamp || "",
+  }
 }
 
 export async function fetchNotifications({
@@ -26,7 +36,10 @@ export async function fetchNotifications({
     `Notifications request page=${page} limit=${limit} type=${notification_type || "all"}`
   )
 
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  })
   if (notification_type) {
     params.set("notification_type", notification_type)
   }
@@ -42,11 +55,13 @@ export async function fetchNotifications({
   }
 
   const data = await res.json()
+  const items = (data.notifications || []).map(normalize)
+
   Log(
     "frontend",
     "info",
     "api",
-    `Notifications success count=${data.notifications?.length || 0} total=${data.total || 0}`
+    `Notifications success count=${items.length}`
   )
-  return data
+  return items
 }
